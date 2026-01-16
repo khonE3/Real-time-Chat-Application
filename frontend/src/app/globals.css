@@ -1,0 +1,252 @@
+@import "tailwindcss";
+
+/* Isan Nong Bua Lam Phu Theme - Custom CSS Variables */
+:root {
+  /* Temple Gold */
+  --color-gold-50: #FFF9E6;
+  --color-gold-100: #FFF0B3;
+  --color-gold-200: #FFE680;
+  --color-gold-300: #FFDB4D;
+  --color-gold-400: #FFD11A;
+  --color-gold-500: #D4A12A;
+  --color-gold-600: #B8860B;
+  --color-gold-700: #8B6914;
+  --color-gold-800: #5E4A0F;
+  --color-gold-900: #312709;
+
+  /* Silk Crimson */
+  --color-silk-50: #FFF0F0;
+  --color-silk-100: #FFD6D6;
+  --color-silk-200: #FFB3B3;
+  --color-silk-300: #FF8080;
+  --color-silk-400: #FF4D4D;
+  --color-silk-500: #DC143C;
+  --color-silk-600: #B22222;
+  --color-silk-700: #8B1A1A;
+  --color-silk-800: #661414;
+  --color-silk-900: #400D0D;
+
+  /* Rice Paddy Green */
+  --color-paddy-50: #F0FFF0;
+  --color-paddy-100: #C6F6C6;
+  --color-paddy-200: #90EE90;
+  --color-paddy-300: #5CDB5C;
+  --color-paddy-400: #32CD32;
+  --color-paddy-500: #228B22;
+  --color-paddy-600: #1E7B1E;
+  --color-paddy-700: #196619;
+  --color-paddy-800: #145214;
+  --color-paddy-900: #0D3D0D;
+
+  /* Earth Brown */
+  --color-earth-50: #FAF5F0;
+  --color-earth-100: #F0E6D6;
+  --color-earth-200: #E0CDB3;
+  --color-earth-300: #C9A87C;
+  --color-earth-400: #B8864B;
+  --color-earth-500: #8B4513;
+  --color-earth-600: #723A10;
+  --color-earth-700: #5A2E0D;
+  --color-earth-800: #42220A;
+  --color-earth-900: #2A1606;
+
+  /* Background */
+  --color-cotton: #FFF8DC;
+  --color-paper: #FFFEF5;
+
+  /* Fonts */
+  --font-thai: 'Sarabun', 'Prompt', sans-serif;
+}
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-thai), system-ui, sans-serif;
+  background: linear-gradient(135deg, var(--color-paper) 0%, var(--color-cotton) 100%);
+  color: var(--color-earth-900);
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-earth-100);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gold-500);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold-600);
+}
+
+/* Isan-themed decorative patterns */
+.isan-pattern {
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(212, 161, 42, 0.05) 10px,
+      rgba(212, 161, 42, 0.05) 20px
+    );
+}
+
+/* Chat message bubbles */
+.message-bubble {
+  position: relative;
+  border-radius: 1rem;
+  padding: 0.75rem 1rem;
+  max-width: 70%;
+  word-wrap: break-word;
+}
+
+.message-bubble.sent {
+  background: linear-gradient(135deg, var(--color-gold-500) 0%, var(--color-gold-600) 100%);
+  color: white;
+  margin-left: auto;
+  border-bottom-right-radius: 0.25rem;
+}
+
+.message-bubble.received {
+  background: white;
+  color: var(--color-earth-800);
+  border: 1px solid var(--color-earth-200);
+  border-bottom-left-radius: 0.25rem;
+}
+
+/* Online indicator */
+.online-indicator {
+  width: 10px;
+  height: 10px;
+  background: var(--color-paddy-500);
+  border-radius: 50%;
+  border: 2px solid white;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* Typing indicator */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 0.5rem;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: var(--color-earth-400);
+  border-radius: 50%;
+  animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Button styles */
+.btn-gold {
+  background: linear-gradient(135deg, var(--color-gold-500) 0%, var(--color-gold-600) 100%);
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-gold:hover {
+  background: linear-gradient(135deg, var(--color-gold-600) 0%, var(--color-gold-700) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 161, 42, 0.3);
+}
+
+.btn-silk {
+  background: linear-gradient(135deg, var(--color-silk-500) 0%, var(--color-silk-600) 100%);
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-silk:hover {
+  background: linear-gradient(135deg, var(--color-silk-600) 0%, var(--color-silk-700) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 20, 60, 0.3);
+}
+
+/* Card styles */
+.card-isan {
+  background: white;
+  border-radius: 1rem;
+  border: 1px solid var(--color-earth-200);
+  box-shadow: 0 4px 6px rgba(139, 69, 19, 0.1);
+  overflow: hidden;
+}
+
+.card-isan-header {
+  background: linear-gradient(135deg, var(--color-gold-500) 0%, var(--color-gold-600) 100%);
+  color: white;
+  padding: 1rem;
+  font-weight: 600;
+}
+
+/* Input styles */
+.input-isan {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-earth-200);
+  border-radius: 0.5rem;
+  background: white;
+  color: var(--color-earth-800);
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.input-isan:focus {
+  outline: none;
+  border-color: var(--color-gold-500);
+  box-shadow: 0 0 0 3px rgba(212, 161, 42, 0.2);
+}
+
+.input-isan::placeholder {
+  color: var(--color-earth-400);
+}
