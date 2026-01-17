@@ -52,8 +52,12 @@ func main() {
 	chatService := service.NewChatService(messageRepo, pubsubRepo, presenceRepo)
 	presenceService := service.NewPresenceService(presenceRepo)
 
-	// Initialize WebSocket hub
-	hub := ws.NewHub(chatService, presenceService, pubsubRepo)
+	// Initialize Global WebSocket hub for homepage updates
+	globalHub := ws.NewGlobalHub(roomRepo)
+	go globalHub.Run()
+
+	// Initialize WebSocket hub for chat rooms
+	hub := ws.NewHub(chatService, presenceService, pubsubRepo, globalHub)
 	go hub.Run()
 
 	// Initialize Fiber app
@@ -102,7 +106,20 @@ func main() {
 	messageHandler := handler.NewMessageHandler(messageRepo)
 	api.Get("/rooms/:id/messages", messageHandler.GetByRoom)
 
-	// Test route
+	// Global WebSocket route for homepage real-time updates (MUST be before /ws/:roomId)
+	app.Get("/ws/global", func(c *fiber.Ctx) error {
+		log.Printf("🌐 GET /ws/global - Global WebSocket request")
+		if !websocket.IsWebSocketUpgrade(c) {
+			return c.SendStatus(fiber.StatusUpgradeRequired)
+		}
+
+		return websocket.New(func(conn *websocket.Conn) {
+			log.Printf("🌐 Global WebSocket connection!")
+			globalHub.HandleGlobalWebSocket(conn)
+		})(c)
+	})
+
+	// WebSocket route for chat rooms
 	app.Get("/ws/:roomId", func(c *fiber.Ctx) error {
 		log.Printf("🎯 GET /ws/%s - Headers: %v", c.Params("roomId"), c.GetReqHeaders())
 		log.Printf("🎯 Upgrade header: %s", c.Get("Upgrade"))

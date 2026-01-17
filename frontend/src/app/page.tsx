@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useGlobalWebSocket } from "@/hooks/useGlobalWebSocket";
 
 interface Room {
   id: string;
@@ -20,7 +21,6 @@ interface User {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
-const REFRESH_INTERVAL = 5000; // Auto-refresh every 5 seconds
 
 export default function Home() {
   const router = useRouter();
@@ -32,6 +32,9 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  // Real-time updates via WebSocket
+  const { isConnected: wsConnected, onRoomUpdate } = useGlobalWebSocket(user?.id || "");
+
   // Check for existing user in localStorage
   useEffect(() => {
     const savedUser = localStorage.getItem("chat_user");
@@ -41,7 +44,7 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch rooms with useCallback for stable reference
+  // Fetch rooms (initial load only)
   const fetchRooms = useCallback(async () => {
     try {
       const savedUser = localStorage.getItem("chat_user");
@@ -61,23 +64,38 @@ export default function Home() {
     }
   }, []);
 
-  // Initial fetch + auto-refresh interval
+  // Initial fetch on mount
   useEffect(() => {
     fetchRooms();
-
-    const interval = setInterval(() => {
-      fetchRooms();
-    }, REFRESH_INTERVAL);
-
-    return () => clearInterval(interval);
   }, [fetchRooms]);
 
-  // Refetch rooms when user changes to get unread counts
+  // Refetch rooms when user changes
   useEffect(() => {
     if (user) {
       fetchRooms();
     }
   }, [user, fetchRooms]);
+
+  // Real-time room stats updates via WebSocket
+  useEffect(() => {
+    onRoomUpdate((roomId, stats) => {
+      setRooms((prevRooms) =>
+        prevRooms.map((room) => {
+          if (room.id === roomId) {
+            return {
+              ...room,
+              online_count: stats.online_count ?? room.online_count,
+              unread_count: stats.has_new_msg
+                ? (room.unread_count || 0) + 1
+                : room.unread_count,
+            };
+          }
+          return room;
+        })
+      );
+      setLastUpdated(new Date());
+    });
+  }, [onRoomUpdate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,10 +287,10 @@ export default function Home() {
                             {room.name.includes("🏯")
                               ? "🏯"
                               : room.name.includes("🛒")
-                              ? "🛒"
-                              : room.name.includes("☕")
-                              ? "☕"
-                              : "💬"}
+                                ? "🛒"
+                                : room.name.includes("☕")
+                                  ? "☕"
+                                  : "💬"}
                           </div>
                           {room.unread_count > 0 && (
                             <span className="absolute -top-2 -right-2 min-w-5 h-5 bg-[var(--color-silk-500)] text-white text-xs font-bold rounded-full flex items-center justify-center px-1">

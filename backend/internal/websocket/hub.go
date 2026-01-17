@@ -46,6 +46,9 @@ type Hub struct {
 	presenceService *service.PresenceService
 	pubsubRepo      *repository.PubSubRepository
 
+	// Global hub for homepage updates
+	globalHub *GlobalHub
+
 	mu sync.RWMutex
 }
 
@@ -54,7 +57,7 @@ type RoomMessage struct {
 	Message []byte
 }
 
-func NewHub(chatService *service.ChatService, presenceService *service.PresenceService, pubsubRepo *repository.PubSubRepository) *Hub {
+func NewHub(chatService *service.ChatService, presenceService *service.PresenceService, pubsubRepo *repository.PubSubRepository, globalHub *GlobalHub) *Hub {
 	return &Hub{
 		rooms:           make(map[string]map[*Client]bool),
 		register:        make(chan *Client),
@@ -63,6 +66,7 @@ func NewHub(chatService *service.ChatService, presenceService *service.PresenceS
 		chatService:     chatService,
 		presenceService: presenceService,
 		pubsubRepo:      pubsubRepo,
+		globalHub:       globalHub,
 	}
 }
 
@@ -108,6 +112,12 @@ func (h *Hub) registerClient(client *Client) {
 			DisplayName: client.DisplayName,
 			IsOnline:    true,
 		})
+
+		// Notify global hub about room stats change (for homepage real-time updates)
+		if h.globalHub != nil {
+			onlineCount := len(h.rooms[client.RoomID])
+			h.globalHub.BroadcastRoomStats(client.RoomID, onlineCount)
+		}
 
 		// Send online users list to the new client
 		onlineUsers, err := h.presenceService.GetOnlineUsers(ctx, client.RoomID)
@@ -159,6 +169,17 @@ func (h *Hub) unregisterClient(client *Client) {
 			DisplayName: client.DisplayName,
 			IsOnline:    false,
 		})
+
+		// Notify global hub about room stats change (for homepage real-time updates)
+		if h.globalHub != nil {
+			h.mu.RLock()
+			onlineCount := 0
+			if clients, ok := h.rooms[client.RoomID]; ok {
+				onlineCount = len(clients)
+			}
+			h.mu.RUnlock()
+			h.globalHub.BroadcastRoomStats(client.RoomID, onlineCount)
+		}
 	}()
 }
 
@@ -328,6 +349,11 @@ func (c *Client) handleMessage(msg *model.WSIncomingMessage) {
 		c.Hub.broadcast <- &RoomMessage{
 			RoomID:  c.RoomID,
 			Message: data,
+		}
+
+		// Notify global hub about new message (for homepage unread counts)
+		if c.Hub.globalHub != nil {
+			c.Hub.globalHub.BroadcastNewMessage(c.RoomID, c.UserID.String())
 		}
 
 	case model.WSTypeTyping:
