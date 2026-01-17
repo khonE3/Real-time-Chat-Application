@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 interface Room {
@@ -20,6 +20,7 @@ interface User {
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
+const REFRESH_INTERVAL = 5000; // Auto-refresh every 5 seconds
 
 export default function Home() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function Home() {
   const [displayName, setDisplayName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showLogin, setShowLogin] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Check for existing user in localStorage
   useEffect(() => {
@@ -39,21 +41,9 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch rooms
-  useEffect(() => {
-    fetchRooms();
-  }, []);
-
-  // Refetch rooms when user changes to get unread counts
-  useEffect(() => {
-    if (user) {
-      fetchRooms();
-    }
-  }, [user]);
-
-  const fetchRooms = async () => {
+  // Fetch rooms with useCallback for stable reference
+  const fetchRooms = useCallback(async () => {
     try {
-      // Include userId to get unread counts if user is logged in
       const savedUser = localStorage.getItem("chat_user");
       let url = `${API_URL}/api/rooms`;
       if (savedUser) {
@@ -64,11 +54,30 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         setRooms(data);
+        setLastUpdated(new Date());
       }
     } catch (error) {
       console.error("Failed to fetch rooms:", error);
     }
-  };
+  }, []);
+
+  // Initial fetch + auto-refresh interval
+  useEffect(() => {
+    fetchRooms();
+
+    const interval = setInterval(() => {
+      fetchRooms();
+    }, REFRESH_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [fetchRooms]);
+
+  // Refetch rooms when user changes to get unread counts
+  useEffect(() => {
+    if (user) {
+      fetchRooms();
+    }
+  }, [user, fetchRooms]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,12 +235,19 @@ export default function Home() {
           <div className="card-isan">
             <div className="card-isan-header flex items-center justify-between">
               <span>🏠 ห้องแชท</span>
-              <button
-                onClick={fetchRooms}
-                className="text-sm bg-white/20 px-3 py-1 rounded-full hover:bg-white/30 transition"
-              >
-                🔄 รีเฟรช
-              </button>
+              <div className="flex items-center gap-2">
+                {lastUpdated && (
+                  <span className="text-xs text-white/70">
+                    อัพเดท: {lastUpdated.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                )}
+                <button
+                  onClick={fetchRooms}
+                  className="text-sm bg-white/20 px-3 py-1 rounded-full hover:bg-white/30 transition"
+                >
+                  🔄
+                </button>
+              </div>
             </div>
             <div className="p-4">
               {rooms.length === 0 ? (
