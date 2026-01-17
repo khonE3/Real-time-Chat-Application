@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -32,6 +33,7 @@ func (h *RoomHandler) List(c *fiber.Ctx) error {
 		if err == nil {
 			rooms, err := h.roomRepo.ListWithUnread(ctx, userID, false)
 			if err != nil {
+				log.Printf("❌ Error fetching rooms with unread: %v", err)
 				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 					"error": "Failed to fetch rooms",
 				})
@@ -45,6 +47,7 @@ func (h *RoomHandler) List(c *fiber.Ctx) error {
 
 	rooms, err := h.roomRepo.List(ctx, false)
 	if err != nil {
+		log.Printf("❌ Error fetching rooms: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch rooms",
 		})

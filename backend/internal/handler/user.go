@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -35,6 +36,7 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 	ctx := context.Background()
 	user, err := h.userRepo.GetOrCreate(ctx, &req)
 	if err != nil {
+		log.Printf("❌ Error creating user: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to create user",
 		})

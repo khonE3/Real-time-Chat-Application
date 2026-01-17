@@ -55,7 +55,7 @@ func Load() *Config {
 
 // GetDatabaseURL builds the PostgreSQL connection string
 func (c *Config) GetDatabaseURL() string {
-	// URL encode the password to handle special characters like %, @, etc.
+	// URL-encode the password to handle special characters
 	encodedPassword := url.QueryEscape(c.DBPassword)
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		c.DBUser, encodedPassword, c.DBHost, c.DBPort, c.DBName, c.DBSSLMode)

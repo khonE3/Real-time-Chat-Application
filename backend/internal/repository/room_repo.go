@@ -179,43 +179,41 @@ func (r *RoomRepository) GetUnreadCount(ctx context.Context, roomID, userID uuid
 
 // ListWithUnread returns rooms with unread count for a specific user
 func (r *RoomRepository) ListWithUnread(ctx context.Context, userID uuid.UUID, includePrivate bool) ([]model.RoomWithMembers, error) {
-	query := `
-		SELECT r.id, r.name, r.description, r.is_private, r.created_by, r.created_at,
-		       COALESCE(COUNT(DISTINCT rm.user_id), 0) as member_count,
-		       COALESCE((
-		           SELECT COUNT(*)
-		           FROM messages m
-		           LEFT JOIN room_members urm ON m.room_id = urm.room_id AND urm.user_id = $1
-		           WHERE m.room_id = r.id AND (urm.last_read_at IS NULL OR m.created_at > urm.last_read_at)
-		       ), 0) as unread_count
-		FROM rooms r
-		LEFT JOIN room_members rm ON r.id = rm.room_id
-	`
-
-	if !includePrivate {
-		query += ` WHERE r.is_private = false`
-	}
-
-	query += ` GROUP BY r.id ORDER BY r.created_at ASC`
-
-	rows, err := r.db.Pool.Query(ctx, query, userID)
+	// First get basic room list
+	rooms, err := r.List(ctx, includePrivate)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var rooms []model.RoomWithMembers
-	for rows.Next() {
-		var room model.RoomWithMembers
-		err := rows.Scan(
-			&room.ID, &room.Name, &room.Description, &room.IsPrivate,
-			&room.CreatedBy, &room.CreatedAt, &room.MemberCount, &room.UnreadCount,
-		)
+	// Then get unread count for each room
+	for i := range rooms {
+		count, err := r.getUnreadCountForRoom(ctx, rooms[i].ID, userID)
 		if err != nil {
-			return nil, err
+			rooms[i].UnreadCount = 0
+		} else {
+			rooms[i].UnreadCount = count
 		}
-		rooms = append(rooms, room)
 	}
 
 	return rooms, nil
+}
+
+// getUnreadCountForRoom gets unread count for a specific room and user
+func (r *RoomRepository) getUnreadCountForRoom(ctx context.Context, roomID, userID uuid.UUID) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM messages m
+		WHERE m.room_id = $1 
+		AND m.created_at > COALESCE(
+			(SELECT last_read_at FROM room_members WHERE room_id = $1 AND user_id = $2),
+			'1970-01-01'::timestamp
+		)
+	`
+
+	var count int
+	err := r.db.Pool.QueryRow(ctx, query, roomID, userID).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }

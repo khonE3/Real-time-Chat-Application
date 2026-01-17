@@ -67,7 +67,7 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORSOrigins,
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,Upgrade,Connection,Sec-WebSocket-Key,Sec-WebSocket-Version,Sec-WebSocket-Extensions",
 		AllowCredentials: true,
 	}))
 
@@ -102,17 +102,23 @@ func main() {
 	messageHandler := handler.NewMessageHandler(messageRepo)
 	api.Get("/rooms/:id/messages", messageHandler.GetByRoom)
 
-	// WebSocket route
-	app.Use("/ws", func(c *fiber.Ctx) error {
-		if websocket.IsWebSocketUpgrade(c) {
-			return c.Next()
-		}
-		return fiber.ErrUpgradeRequired
-	})
+	// Test route
+	app.Get("/ws/:roomId", func(c *fiber.Ctx) error {
+		log.Printf("🎯 GET /ws/%s - Headers: %v", c.Params("roomId"), c.GetReqHeaders())
+		log.Printf("🎯 Upgrade header: %s", c.Get("Upgrade"))
+		log.Printf("🎯 Connection header: %s", c.Get("Connection"))
 
-	app.Get("/ws/:roomId", websocket.New(func(c *websocket.Conn) {
-		hub.HandleWebSocket(c)
-	}))
+		if !websocket.IsWebSocketUpgrade(c) {
+			log.Printf("❌ NOT a WebSocket upgrade request")
+			return c.SendStatus(fiber.StatusUpgradeRequired)
+		}
+
+		log.Printf("✅ IS a WebSocket upgrade request")
+		return websocket.New(func(conn *websocket.Conn) {
+			log.Printf("🔌 WebSocket handler called!")
+			hub.HandleWebSocket(conn)
+		})(c)
+	})
 
 	// Graceful shutdown
 	go func() {

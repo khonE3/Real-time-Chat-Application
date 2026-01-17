@@ -35,9 +35,29 @@ export function useWebSocket(
 
   // Connect to WebSocket
   const connect = useCallback(() => {
-    if (!roomId || !userId) return;
+    // Guard against empty parameters
+    if (!roomId || !userId || userId === "") {
+      console.log("⏸️ WebSocket: Waiting for roomId and userId...");
+      return;
+    }
 
-    const wsUrl = `${WS_URL}/ws/${roomId}?userId=${userId}&username=${username}&displayName=${encodeURIComponent(displayName)}`;
+    // Close existing connection first
+    if (wsRef.current) {
+      console.log("🔄 Closing existing WebSocket connection...");
+      wsRef.current.onclose = null; // Prevent triggering reconnect
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    // Clear any pending reconnect
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+
+    const wsUrl = `${WS_URL}/ws/${roomId}?userId=${userId}&username=${encodeURIComponent(username)}&displayName=${encodeURIComponent(displayName)}`;
+
+    console.log("🔗 Connecting to WebSocket:", wsUrl);
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -54,23 +74,29 @@ export function useWebSocket(
         console.log("❌ WebSocket disconnected:", event.code, event.reason);
         setIsConnected(false);
 
-        // Attempt to reconnect
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          reconnectAttempts.current++;
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-          console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
+        // Only reconnect if this is still the current connection
+        if (wsRef.current === ws) {
+          // Attempt to reconnect
+          if (reconnectAttempts.current < maxReconnectAttempts) {
+            reconnectAttempts.current++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+            console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
 
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, delay);
-        } else {
-          setError("ไม่สามารถเชื่อมต่อได้ กรุณารีเฟรชหน้า");
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connect();
+            }, delay);
+          } else {
+            setError("ไม่สามารถเชื่อมต่อได้ กรุณารีเฟรชหน้า");
+          }
         }
       };
 
       ws.onerror = (event) => {
         console.error("⚠️ WebSocket error:", event);
-        setError("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+        // Only set error if this is still the current connection
+        if (wsRef.current === ws) {
+          setError("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+        }
       };
 
       ws.onmessage = (event) => {
@@ -91,15 +117,17 @@ export function useWebSocket(
   const handleMessage = useCallback((data: WSMessage) => {
     switch (data.type) {
       case "message":
-        setMessages((prev) => [...prev, data.payload as Message]);
+        if (data.payload) {
+          setMessages((prev) => [...prev, data.payload as Message]);
+        }
         break;
 
       case "history":
-        setMessages(data.payload as Message[]);
+        setMessages((data.payload as Message[]) || []);
         break;
 
       case "online_users":
-        setOnlineUsers(data.payload as OnlineUser[]);
+        setOnlineUsers((data.payload as OnlineUser[]) || []);
         break;
 
       case "typing":

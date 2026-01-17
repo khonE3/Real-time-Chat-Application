@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        #log { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <button onclick="connect()">Connect</button>
+    <button onclick="disconnect()">Disconnect</button>
+    <div id="log"></div>
+
+    <script>
+        let ws = null;
+        const log = document.getElementById('log');
+
+        function addLog(message, type = 'info') {
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            log.appendChild(p);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function connect() {
+            const roomId = '00000000-0000-0000-0000-000000000002';
+            const userId = 'test-user-id';
+            const username = 'testuser';
+            const displayName = 'Test User';
+            
+            const wsUrl = `ws://localhost:3001/ws/${roomId}?userId=${userId}&username=${username}&displayName=${displayName}`;
+            
+            addLog(`Connecting to: ${wsUrl}`, 'info');
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    addLog('✅ WebSocket connected successfully!', 'success');
+                };
+                
+                ws.onmessage = (event) => {
+                    addLog(`📨 Message received: ${event.data}`, 'info');
+                };
+                
+                ws.onerror = (error) => {
+                    addLog(`❌ WebSocket error: ${JSON.stringify(error)}`, 'error');
+                };
+                
+                ws.onclose = (event) => {
+                    addLog(`🔌 WebSocket closed: Code=${event.code}, Reason=${event.reason}`, 'error');
+                };
+            } catch (e) {
+                addLog(`❌ Failed to create WebSocket: ${e.message}`, 'error');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                addLog('Disconnected', 'info');
+            }
+        }
+    </script>
+</body>
+</html>

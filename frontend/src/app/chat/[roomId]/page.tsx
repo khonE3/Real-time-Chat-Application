@@ -25,7 +25,7 @@ export default function ChatRoom() {
   const params = useParams();
   const router = useRouter();
   const roomId = params.roomId as string;
-  
+
   const [user, setUser] = useState<User | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [showOnlineUsers, setShowOnlineUsers] = useState(true);
@@ -143,9 +143,8 @@ export default function ChatRoom() {
             {/* Connection status */}
             <div className="flex items-center gap-2 text-sm">
               <span
-                className={`w-2 h-2 rounded-full ${
-                  isConnected ? "bg-[var(--color-paddy-400)]" : "bg-red-400"
-                }`}
+                className={`w-2 h-2 rounded-full ${isConnected ? "bg-[var(--color-paddy-400)]" : "bg-red-400"
+                  }`}
               ></span>
               {isConnected ? "เชื่อมต่อแล้ว" : "กำลังเชื่อมต่อ..."}
             </div>
@@ -167,7 +166,7 @@ export default function ChatRoom() {
             <MessageList
               messages={messages}
               currentUserId={user.id}
-              typingUsers={typingUsers.filter((u) => u.user_id !== user.id)}
+              typingUsers={(typingUsers || []).filter((u) => u.user_id !== user.id)}
             />
             <MessageInput
               onSendMessage={handleSendMessage}
