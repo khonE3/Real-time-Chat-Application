@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Message, OnlineUser, TypingUser, WSMessage, WSMessageType } from "@/types";
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
 
 interface UseWebSocketReturn {
   messages: Message[];
@@ -32,6 +33,51 @@ export function useWebSocket(
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+
+  const historyReceivedRef = useRef(false);
+  const historyFetchAttemptedRef = useRef(false);
+  const historyProbeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const messagesLenRef = useRef(0);
+  useEffect(() => {
+    messagesLenRef.current = messages.length;
+  }, [messages.length]);
+
+  // Reset per-room state when room changes
+  useEffect(() => {
+    setMessages([]);
+    setOnlineUsers([]);
+    setTypingUsers([]);
+    setIsConnected(false);
+    setError(null);
+    historyReceivedRef.current = false;
+    historyFetchAttemptedRef.current = false;
+    if (historyProbeTimeoutRef.current) {
+      clearTimeout(historyProbeTimeoutRef.current);
+      historyProbeTimeoutRef.current = null;
+    }
+  }, [roomId]);
+
+  const fetchHistoryHttp = useCallback(async () => {
+    if (!roomId) return;
+    if (historyFetchAttemptedRef.current) return;
+    historyFetchAttemptedRef.current = true;
+
+    try {
+      const res = await fetch(`${API_URL}/api/rooms/${roomId}/messages?limit=50&offset=0`);
+      if (!res.ok) {
+        return;
+      }
+      const data = await res.json();
+      const next = (data?.messages as Message[]) || [];
+      // Only set if we still haven't received WS history
+      if (!historyReceivedRef.current) {
+        setMessages(next);
+      }
+    } catch {
+      // Ignore: this is a best-effort fallback
+    }
+  }, [roomId]);
 
   // Connect to WebSocket
   const connect = useCallback(() => {
@@ -68,11 +114,26 @@ export function useWebSocket(
         setIsConnected(true);
         setError(null);
         reconnectAttempts.current = 0;
+
+        // If WS doesn't deliver history quickly (or ever), fall back to HTTP.
+        if (historyProbeTimeoutRef.current) {
+          clearTimeout(historyProbeTimeoutRef.current);
+        }
+        historyProbeTimeoutRef.current = setTimeout(() => {
+          if (!historyReceivedRef.current && messagesLenRef.current === 0) {
+            fetchHistoryHttp();
+          }
+        }, 1200);
       };
 
       ws.onclose = (event) => {
         console.log("❌ WebSocket disconnected:", event.code, event.reason);
         setIsConnected(false);
+
+        // Still allow loading history even if WS failed.
+        if (!historyReceivedRef.current && messagesLenRef.current === 0) {
+          fetchHistoryHttp();
+        }
 
         // Only reconnect if this is still the current connection
         if (wsRef.current === ws) {
@@ -92,10 +153,16 @@ export function useWebSocket(
       };
 
       ws.onerror = (event) => {
-        console.error("⚠️ WebSocket error:", event);
+        // Next.js dev overlay treats console.error as an app error; use warn instead.
+        const readyState = ws.readyState;
+        console.warn("⚠️ WebSocket error", {
+          readyState,
+          url: wsUrl,
+          type: (event as Event)?.type,
+        });
         // Only set error if this is still the current connection
         if (wsRef.current === ws) {
-          setError("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+          setError("เกิดข้อผิดพลาดในการเชื่อมต่อ WebSocket");
         }
       };
 
@@ -110,6 +177,7 @@ export function useWebSocket(
     } catch (e) {
       console.error("Failed to create WebSocket:", e);
       setError("ไม่สามารถสร้างการเชื่อมต่อได้");
+      fetchHistoryHttp();
     }
   }, [roomId, userId, username, displayName]);
 
@@ -123,6 +191,7 @@ export function useWebSocket(
         break;
 
       case "history":
+        historyReceivedRef.current = true;
         setMessages((data.payload as Message[]) || []);
         break;
 
@@ -227,6 +296,10 @@ export function useWebSocket(
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (historyProbeTimeoutRef.current) {
+        clearTimeout(historyProbeTimeoutRef.current);
+        historyProbeTimeoutRef.current = null;
       }
       if (wsRef.current) {
         wsRef.current.close();

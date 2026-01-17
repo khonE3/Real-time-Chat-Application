@@ -105,7 +105,7 @@ export default function MessageList({
                   )}
 
                   <div
-                    className={`max-w-[70%] ${isSent ? "items-end" : "items-start"}`}
+                    className={`max-w-[85%] ${isSent ? "items-end" : "items-start"}`}
                   >
                     {/* Username for received messages */}
                     {!isSent && showAvatar && (

@@ -123,6 +123,12 @@ func main() {
 	// Graceful shutdown
 	go func() {
 		addr := cfg.ServerHost + ":" + cfg.ServerPort
+		// On Windows, "localhost" may resolve to ::1 first. If we bind IPv4-only (0.0.0.0),
+		// WebSocket connections can fail with a generic client-side error. Binding ":port"
+		// enables dual-stack on most systems.
+		if cfg.ServerHost == "" || cfg.ServerHost == "0.0.0.0" {
+			addr = ":" + cfg.ServerPort
+		}
 		log.Printf("🚀 Server starting on %s", addr)
 		if err := app.Listen(addr); err != nil {
 			log.Printf("Server error: %v", err)

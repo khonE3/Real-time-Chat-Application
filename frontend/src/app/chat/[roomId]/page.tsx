@@ -19,7 +19,7 @@ interface Room {
   description: string | null;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
 
 export default function ChatRoom() {
   const params = useParams();
@@ -83,6 +83,7 @@ export default function ChatRoom() {
     onlineUsers,
     typingUsers,
     isConnected,
+    error,
     sendMessage,
     sendTyping,
     sendStopTyping,
@@ -114,7 +115,7 @@ export default function ChatRoom() {
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <div className="text-center">
           <div className="animate-spin text-4xl mb-4">🔄</div>
-          <p className="text-[var(--color-earth-600)]">กำลังโหลด...</p>
+          <p className="text-(--color-earth-600)">กำลังโหลด...</p>
         </div>
       </div>
     );
@@ -134,7 +135,7 @@ export default function ChatRoom() {
             </button>
             <div>
               <h2 className="font-bold">{room?.name || "ห้องแชท"}</h2>
-              <p className="text-xs text-[var(--color-gold-100)]">
+              <p className="text-xs text-(--color-gold-100)">
                 {room?.description || ""}
               </p>
             </div>
@@ -143,7 +144,7 @@ export default function ChatRoom() {
             {/* Connection status */}
             <div className="flex items-center gap-2 text-sm">
               <span
-                className={`w-2 h-2 rounded-full ${isConnected ? "bg-[var(--color-paddy-400)]" : "bg-red-400"
+                className={`w-2 h-2 rounded-full ${isConnected ? "bg-(--color-paddy-400)" : "bg-red-400"
                   }`}
               ></span>
               {isConnected ? "เชื่อมต่อแล้ว" : "กำลังเชื่อมต่อ..."}
@@ -158,6 +159,12 @@ export default function ChatRoom() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div className="px-4 py-2 text-sm bg-red-50 text-red-700 border-b border-red-200">
+            {error}
+          </div>
+        )}
 
         {/* Chat Content */}
         <div className="flex-1 flex overflow-hidden">
@@ -178,7 +185,7 @@ export default function ChatRoom() {
 
           {/* Online Users Sidebar */}
           {showOnlineUsers && (
-            <div className="w-64 border-l border-[var(--color-earth-200)] hidden lg:block">
+            <div className="w-64 border-l border-(--color-earth-200) hidden lg:block">
               <OnlineUsers users={onlineUsers} currentUserId={user.id} />
             </div>
           )}

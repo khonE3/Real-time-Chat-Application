@@ -19,7 +19,7 @@ interface User {
   display_name: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001";
 
 export default function Home() {
   const router = useRouter();

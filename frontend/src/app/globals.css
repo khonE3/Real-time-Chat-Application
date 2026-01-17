@@ -106,8 +106,7 @@ body {
 .message-bubble {
   position: relative;
   border-radius: 1rem;
-  padding: 0.75rem 1rem;
-  max-width: 70%;
+  padding: 0.875rem 1.125rem;
   word-wrap: break-word;
 }
 

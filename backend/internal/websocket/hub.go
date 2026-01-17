@@ -110,14 +110,20 @@ func (h *Hub) registerClient(client *Client) {
 		})
 
 		// Send online users list to the new client
-		onlineUsers, _ := h.presenceService.GetOnlineUsers(ctx, client.RoomID)
+		onlineUsers, err := h.presenceService.GetOnlineUsers(ctx, client.RoomID)
+		if err != nil {
+			log.Printf("Failed to get online users for room %s: %v", client.RoomID, err)
+		}
 		h.sendToClient(client, model.WSMessage{
 			Type:    model.WSTypeOnlineUsers,
 			Payload: onlineUsers,
 		})
 
 		// Send recent message history
-		messages, _ := h.chatService.GetRecentMessages(ctx, client.RoomID, 50)
+		messages, err := h.chatService.GetRecentMessages(ctx, client.RoomID, 50)
+		if err != nil {
+			log.Printf("Failed to get recent messages for room %s: %v", client.RoomID, err)
+		}
 		h.sendToClient(client, model.WSMessage{
 			Type:    model.WSTypeHistory,
 			Payload: messages,
@@ -197,6 +203,15 @@ func (h *Hub) HandleWebSocket(c *websocket.Conn) {
 		c.WriteJSON(model.WSMessage{
 			Type:    model.WSTypeError,
 			Payload: "Missing roomId or userId",
+		})
+		c.Close()
+		return
+	}
+
+	if _, err := uuid.Parse(roomID); err != nil {
+		c.WriteJSON(model.WSMessage{
+			Type:    model.WSTypeError,
+			Payload: "Invalid roomId format",
 		})
 		c.Close()
 		return
