@@ -41,7 +41,59 @@ CREATE INDEX IF NOT EXISTS idx_reactions_message_id ON message_reactions(message
 CREATE INDEX IF NOT EXISTS idx_reactions_user_id ON message_reactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_deleted_at ON message_reactions(deleted_at) WHERE deleted_at IS NOT NULL;
 
--- Add soft delete to existing tables
+-- Create notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    body TEXT,
+    data JSONB,
+    is_read BOOLEAN DEFAULT false,
+    room_id UUID REFERENCES rooms(id),
+    message_id UUID REFERENCES messages(id),
+    from_user UUID REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    read_at TIMESTAMP WITH TIME ZONE,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(user_id, is_read) WHERE is_read = false;
+CREATE INDEX IF NOT EXISTS idx_notifications_deleted_at ON notifications(deleted_at) WHERE deleted_at IS NOT NULL;
+
+-- Create push_subscriptions table
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    endpoint TEXT NOT NULL,
+    p256dh TEXT,
+    auth TEXT,
+    user_agent VARCHAR(500),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON push_subscriptions(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_unique ON push_subscriptions(user_id, endpoint) WHERE deleted_at IS NULL;
+
+-- Create notification_settings table
+CREATE TABLE IF NOT EXISTS notification_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) UNIQUE,
+    enable_push BOOLEAN DEFAULT true,
+    enable_sound BOOLEAN DEFAULT true,
+    enable_desktop BOOLEAN DEFAULT true,
+    mute_dms BOOLEAN DEFAULT false,
+    mute_group_chats BOOLEAN DEFAULT false,
+    mute_mentions_only BOOLEAN DEFAULT false,
+    quiet_hours_enabled BOOLEAN DEFAULT false,
+    quiet_hours_start VARCHAR(5),
+    quiet_hours_end VARCHAR(5),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add soft delete and updated_at to existing tables
 ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();

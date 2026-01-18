@@ -153,6 +153,38 @@ func main() {
 	api.Get("/dm", dmHandler.ListDMs)
 	api.Get("/dm/:targetUserId", dmHandler.GetDM)
 
+	// Initialize additional GORM repositories for Phase 2.4-2.6
+	gormMessageRepo := repository.NewGormMessageRepository(gormDB)
+	gormReactionRepo := repository.NewGormReactionRepository(gormDB)
+	gormNotificationRepo := repository.NewGormNotificationRepository(gormDB)
+
+	// Reaction routes (Phase 2.4)
+	reactionHandler := handler.NewReactionHandler(gormReactionRepo, gormMessageRepo)
+	api.Post("/reactions", reactionHandler.AddReaction)
+	api.Delete("/reactions", reactionHandler.RemoveReaction)
+	api.Post("/messages/:messageId/reactions/:emoji", reactionHandler.ToggleReaction)
+	api.Get("/messages/:messageId/reactions", reactionHandler.GetReactions)
+	api.Get("/reactions/emojis", reactionHandler.GetCommonEmojis)
+
+	// Search routes (Phase 2.5)
+	searchHandler := handler.NewSearchHandler(gormMessageRepo, gormUserRepo, gormRoomRepo)
+	api.Get("/rooms/:roomId/search", searchHandler.SearchMessages)
+	api.Get("/rooms/:roomId/messages/before", searchHandler.GetMessagesBefore)
+	api.Get("/search/users", searchHandler.SearchUsers)
+	api.Get("/search", searchHandler.GlobalSearch)
+
+	// Notification routes (Phase 2.6)
+	notificationHandler := handler.NewNotificationHandler(gormNotificationRepo)
+	api.Get("/notifications", notificationHandler.GetNotifications)
+	api.Get("/notifications/unread", notificationHandler.GetUnreadNotifications)
+	api.Get("/notifications/count", notificationHandler.GetUnreadCount)
+	api.Post("/notifications/:id/read", notificationHandler.MarkAsRead)
+	api.Post("/notifications/read-all", notificationHandler.MarkAllAsRead)
+	api.Delete("/notifications/:id", notificationHandler.Delete)
+	api.Delete("/notifications", notificationHandler.DeleteAll)
+	api.Post("/push/subscribe", notificationHandler.SubscribePush)
+	api.Delete("/push/unsubscribe", notificationHandler.UnsubscribePush)
+
 	// Global WebSocket route for homepage real-time updates (MUST be before /ws/:roomId)
 	app.Get("/ws/global", func(c *fiber.Ctx) error {
 		log.Printf("🌐 GET /ws/global - Global WebSocket request")
