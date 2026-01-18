@@ -41,12 +41,30 @@ func main() {
 	defer rdb.Close()
 	log.Println("✅ Connected to Redis")
 
-	// Initialize repositories
+	// Initialize GORM (parallel to pgx for gradual migration)
+	gormDB, err := database.NewGormDB(cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName, "disable")
+	if err != nil {
+		log.Fatalf("Failed to connect to PostgreSQL via GORM: %v", err)
+	}
+	defer gormDB.Close()
+	log.Println("✅ Connected to PostgreSQL via GORM")
+
+	// Auto-migrate new tables (File, Reaction, DM fields)
+	// Note: Running migrations on existing tables is safe - GORM only adds missing columns
+	// For production, you should use separate migration files
+	// gormDB.AutoMigrate(&model.File{}, &model.Reaction{})
+
+	// Initialize repositories (keeping old pgx repos for backward compatibility)
 	userRepo := repository.NewUserRepository(db)
 	roomRepo := repository.NewRoomRepository(db)
 	messageRepo := repository.NewMessageRepository(db, rdb)
 	presenceRepo := repository.NewPresenceRepository(rdb)
 	pubsubRepo := repository.NewPubSubRepository(rdb)
+
+	// Initialize GORM-based repositories for new features
+	gormUserRepo := repository.NewGormUserRepository(gormDB)
+	gormRoomRepo := repository.NewGormRoomRepository(gormDB)
+	gormFileRepo := repository.NewGormFileRepository(gormDB)
 
 	// Initialize services
 	chatService := service.NewChatService(messageRepo, pubsubRepo, presenceRepo)
@@ -62,7 +80,8 @@ func main() {
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
-		AppName: "Isan Chat - หนองบัวลำภู 🏯",
+		AppName:   "Isan Chat - หนองบัวลำภู 🏯",
+		BodyLimit: 15 * 1024 * 1024, // 15MB for file uploads
 	})
 
 	// Middleware
@@ -74,6 +93,9 @@ func main() {
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,Upgrade,Connection,Sec-WebSocket-Key,Sec-WebSocket-Version,Sec-WebSocket-Extensions",
 		AllowCredentials: true,
 	}))
+
+	// Static file serving for uploads
+	app.Static("/uploads", "./uploads")
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
@@ -91,6 +113,17 @@ func main() {
 	api.Post("/users", userHandler.Create)
 	api.Get("/users/:id", userHandler.GetByID)
 	api.Get("/users/username/:username", userHandler.GetByUsername)
+	api.Get("/users/search", func(c *fiber.Ctx) error {
+		query := c.Query("q")
+		if query == "" {
+			return c.JSON([]interface{}{})
+		}
+		users, err := gormUserRepo.Search(c.Context(), query, 20)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.JSON(users)
+	})
 
 	// Room routes
 	roomHandler := handler.NewRoomHandler(roomRepo, userRepo)
@@ -105,6 +138,20 @@ func main() {
 	// Message routes
 	messageHandler := handler.NewMessageHandler(messageRepo)
 	api.Get("/rooms/:id/messages", messageHandler.GetByRoom)
+
+	// File upload routes
+	fileHandler := handler.NewFileHandler(gormFileRepo, "./uploads", "http://localhost:"+cfg.ServerPort)
+	api.Post("/upload", fileHandler.Upload)
+	api.Post("/upload/multiple", fileHandler.UploadMultiple)
+	api.Get("/files/:id", fileHandler.GetFile)
+	api.Delete("/files/:id", fileHandler.Delete)
+	app.Get("/uploads/:filename", fileHandler.ServeFile)
+
+	// DM routes
+	dmHandler := handler.NewDMHandler(gormRoomRepo, gormUserRepo)
+	api.Post("/dm/start", dmHandler.StartDM)
+	api.Get("/dm", dmHandler.ListDMs)
+	api.Get("/dm/:targetUserId", dmHandler.GetDM)
 
 	// Global WebSocket route for homepage real-time updates (MUST be before /ws/:roomId)
 	app.Get("/ws/global", func(c *fiber.Ctx) error {
